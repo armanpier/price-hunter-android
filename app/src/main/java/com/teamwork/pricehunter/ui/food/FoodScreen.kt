@@ -66,7 +66,14 @@ fun FoodScreen(
                 repository.searchFoodFlow(cleanQuery, location).collectLatest { updatedOffers ->
                     offers = updatedOffers
                     listOf("snappfood", "tapsifood").forEach { id ->
-                        if (updatedOffers.any { it.providerName.contains(id, ignoreCase = true) }) {
+                        val isMatched = updatedOffers.any { offer ->
+                            when (id) {
+                                "snappfood" -> offer.providerName.contains("اسنپ") || offer.providerName.contains("snapp", ignoreCase = true)
+                                "tapsifood" -> offer.providerName.contains("تپسی") || offer.providerName.contains("tapsi", ignoreCase = true)
+                                else -> offer.providerName.contains(id, ignoreCase = true)
+                            }
+                        }
+                        if (isMatched) {
                             foodTracker.markSuccess(id)
                         }
                     }

@@ -67,7 +67,15 @@ fun ShoppingScreen(
                     detailedResults = results
                     // Mark providers as success/complete as results arrive
                     listOf("digikala", "torob", "snappshop").forEach { id ->
-                        if (results.primaryOffers.any { it.providerName.contains(id, ignoreCase = true) }) {
+                        val isMatched = results.primaryOffers.any { offer ->
+                            when (id) {
+                                "digikala" -> offer.providerName.contains("دیجی") || offer.providerName.contains("digikala", ignoreCase = true)
+                                "torob" -> offer.providerName.contains("ترب") || offer.providerName.contains("torob", ignoreCase = true)
+                                "snappshop" -> offer.providerName.contains("اسنپ") || offer.providerName.contains("snapp", ignoreCase = true)
+                                else -> offer.providerName.contains(id, ignoreCase = true)
+                            }
+                        }
+                        if (isMatched) {
                             shoppingTracker.markSuccess(id)
                         }
                     }
