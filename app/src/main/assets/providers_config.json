@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "providers": {
+    "digikala": {
+      "id": "digikala",
+      "enabled": true,
+      "timeoutMs": 10000,
+      "baseUrl": "https://api.digikala.com/v2/",
+      "extraHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 14) Mobile PriceHunter/1.0",
+        "Accept": "application/json"
+      }
+    },
+    "torob": {
+      "id": "torob",
+      "enabled": true,
+      "timeoutMs": 10000,
+      "baseUrl": "https://api.torob.com/v4/",
+      "extraHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 14) Mobile PriceHunter/1.0",
+        "Accept": "application/json"
+      }
+    },
+    "snappshop": {
+      "id": "snappshop",
+      "enabled": true,
+      "timeoutMs": 10000,
+      "baseUrl": "https://api.snapp.market/",
+      "extraHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 14) Mobile PriceHunter/1.0",
+        "Accept": "application/json"
+      }
+    },
+    "snappfood": {
+      "id": "snappfood",
+      "enabled": true,
+      "timeoutMs": 12000,
+      "baseUrl": "https://snappfood.ir/mobile/v2/",
+      "extraHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 14) Mobile PriceHunter/1.0",
+        "Accept": "application/json"
+      }
+    },
+    "tapsifood": {
+      "id": "tapsifood",
+      "enabled": true,
+      "timeoutMs": 12000,
+      "baseUrl": "https://api.tapsi.food/",
+      "extraHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 14) Mobile PriceHunter/1.0",
+        "Accept": "application/json"
+      }
+    },
+    "okala": {
+      "id": "okala",
+      "enabled": false,
+      "timeoutMs": 10000,
+      "baseUrl": "https://api.okala.com/",
+      "extraHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 14) Mobile PriceHunter/1.0",
+        "Accept": "application/json"
+      }
+    }
+  }
+}
