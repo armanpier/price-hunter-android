@@ -87,13 +87,43 @@ class SnappFoodProvider(
                     ?: dataObj?.getSafeArray("items")
                     ?: return@withContext ProviderResult.Success(emptyList())
 
+                // Fetch dynamic state for packaging, tax, delivery fee as fallback
+                var fallbackDeliveryFee = 30000L
+                var fallbackPackagingFee = 15000L
+                var fallbackTaxPercent = 10L
+                var fallbackMinOrder = 150000L
+
+                try {
+                    val stateRequest = Request.Builder()
+                        .url(stateUrl)
+                        .header("User-Agent", "PriceHunter/1.0 (Android)")
+                        .header("Accept", "application/json")
+                        .build()
+
+                    client.newCall(stateRequest).execute().use { stateResp ->
+                        if (stateResp.isSuccessful) {
+                            val stateBody = stateResp.body?.string() ?: ""
+                            val stateJson = gson.fromJson(stateBody, JsonObject::class.java)
+                            val stateData = stateJson.getSafeObject("data")
+                            if (stateData != null) {
+                                val del = stateData.getSafeObject("delivery")
+                                val baseFee = del?.getSafeLong("fee") ?: 30000L
+                                val delDiscount = del?.getSafeLong("discount") ?: 0L
+                                fallbackDeliveryFee = max(0L, baseFee - delDiscount)
+                                fallbackPackagingFee = stateData.getSafeLong("packaging_fee") ?: 15000L
+                                fallbackTaxPercent = stateData.getSafeLong("tax_percent") ?: 10L
+                                fallbackMinOrder = stateData.getSafeLong("minOrder") ?: 150000L
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+
                 val offers = mutableListOf<FoodVendorDishOffer>()
                 for (it in items) {
                     val itObj = it.asSafeObject() ?: continue
                     val id = itObj.getSafeString("id") ?: continue
                     val dishName = itObj.getSafeString("title") ?: ""
                     val foodPrice = itObj.getSafeLong("price") ?: 0L
-                    if (foodPrice <= 0L) continue
 
                     val discountRatio = itObj.getSafeLong("discountRatio") ?: 0L
                     val rawDiscount = (foodPrice * min(100L, max(0L, discountRatio))) / 100L
@@ -107,13 +137,13 @@ class SnappFoodProvider(
                     val vLon = vendorObj?.getSafeDouble("longitude")
                         ?: vendorObj?.getSafeDouble("lon") ?: userLocation.longitude
 
-                    // Use the vendor's actual delivery fee and min order
-                    val rawDeliveryFee = vendorObj?.getSafeLong("deliveryFeeAfterDiscount")
-                        ?: vendorObj?.getSafeLong("delivery_fee") ?: 0L
-                    val deliveryFee = max(0L, rawDeliveryFee)
-                    val packagingFee = vendorObj?.getSafeLong("packaging_fee") ?: 0L
-                    val minOrder = vendorObj?.getSafeLong("minOrder") ?: 0L
-                    val taxPercent = 10L
+                    // Use vendor delivery fee if explicitly present; otherwise use state fallback
+                    val deliveryFee = vendorObj?.getSafeLong("deliveryFeeAfterDiscount")
+                        ?: vendorObj?.getSafeLong("delivery_fee")
+                        ?: fallbackDeliveryFee
+                    val packagingFee = vendorObj?.getSafeLong("packaging_fee") ?: fallbackPackagingFee
+                    val minOrder = vendorObj?.getSafeLong("minOrder") ?: fallbackMinOrder
+                    val taxPercent = fallbackTaxPercent
 
                     val costBreakdown = FoodCostCalculator.calculateDeliveredCost(
                         foodPriceToman = foodPrice,

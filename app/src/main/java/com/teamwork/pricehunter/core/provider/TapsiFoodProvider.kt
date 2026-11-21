@@ -162,7 +162,16 @@ class TapsiFoodProvider(
                             vendorLocation = userLocation,
                             dishName = title,
                             costBreakdown = costBreakdown,
-                            originalUrl = "https://food.tapsi.ir/restaurant/$vendorCode",
+                            originalUrl = if (vendorCode.isNotBlank() && vendorCode != "vendor-1") {
+                                val pId = pInfo.getSafeString("id") ?: itObj.getSafeString("id")
+                                if (!pId.isNullOrBlank()) {
+                                    "https://tapsi.food/vendor/$vendorCode/product/$pId"
+                                } else {
+                                    "https://tapsi.food/vendor/$vendorCode/"
+                                }
+                            } else {
+                                "https://tapsi.food"
+                            },
                             imageUrl = imageUrl,
                             isOpen = isOpen
                         )
@@ -218,7 +227,7 @@ class TapsiFoodProvider(
                         vendorLocation = GeoLocation(vLat, vLon),
                         dishName = title,
                         costBreakdown = costBreakdown,
-                        originalUrl = "https://tapsi.food/restaurant/$vendorCode",
+                        originalUrl = "https://tapsi.food/vendor/$vendorCode/",
                         imageUrl = null,
                         isOpen = true
                     )

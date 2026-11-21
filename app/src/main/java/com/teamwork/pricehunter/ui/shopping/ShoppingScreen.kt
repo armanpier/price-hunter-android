@@ -43,6 +43,7 @@ fun ShoppingScreen(
     var detailedResults by remember { mutableStateOf(DetailedShoppingResults()) }
     var isSearching by remember { mutableStateOf(false) }
     var isAccessoriesExpanded by remember { mutableStateOf(false) }
+    var isOutliersExpanded by remember { mutableStateOf(false) }
     var vpnBannerDismissed by remember { mutableStateOf(false) }
 
     var shoppingTracker by remember {
@@ -160,12 +161,20 @@ fun ShoppingScreen(
         }
 
         // Main Offers Content Area
-        val allPrimaryAndOutliers = remember(detailedResults) {
-            // Outliers combined with primary but marked with isOutlier flag, ranked strictly by merchandise price
-            (detailedResults.primaryOffers + detailedResults.outlierOffers).sortedBy { it.priceToman }
+        // Primary merchandise offers strictly sorted by price
+        val primaryOffers = remember(detailedResults) {
+            detailedResults.primaryOffers.sortedBy { it.priceToman }
+        }
+        val outlierOffers = remember(detailedResults) {
+            detailedResults.outlierOffers.sortedBy { it.priceToman }
+        }
+        val accessoryOffers = remember(detailedResults) {
+            detailedResults.accessoryOffers.sortedBy { it.priceToman }
         }
 
-        if (allPrimaryAndOutliers.isEmpty() && !isSearching) {
+        val hasAnyResults = primaryOffers.isNotEmpty() || outlierOffers.isNotEmpty() || accessoryOffers.isNotEmpty()
+
+        if (!hasAnyResults && !isSearching) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -186,16 +195,61 @@ fun ShoppingScreen(
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 // Primary Merchandise Offers (Ranked strictly by priceToman ascending)
-                items(allPrimaryAndOutliers, key = { "${it.providerName}_${it.id}" }) { offer ->
-                    val isOutlier = detailedResults.outlierOffers.any { it.id == offer.id && it.providerName == offer.providerName }
+                items(primaryOffers, key = { "${it.providerName}_${it.id}" }) { offer ->
                     ShoppingOfferCard(
                         offer = offer,
-                        isOutlier = isOutlier
+                        isOutlier = false
                     )
                 }
 
+                // Collapsible Section for Filtered Outliers (< 20% of median)
+                if (outlierOffers.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                                .clickable { isOutliersExpanded = !isOutliersExpanded }
+                                .testTag("shopping_outliers_header"),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "کالاهای با قیمت نامتعارف یا مشکوک (${outlierOffers.size} مورد فیلتر شده)",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Icon(
+                                    imageVector = if (isOutliersExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (isOutliersExpanded) "بستن" else "باز کردن",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+
+                    if (isOutliersExpanded) {
+                        items(outlierOffers, key = { "outlier_${it.providerName}_${it.id}" }) { outlier ->
+                            ShoppingOfferCard(
+                                offer = outlier,
+                                isOutlier = true,
+                                modifier = Modifier.testTag("shopping_outlier_card")
+                            )
+                        }
+                    }
+                }
+
                 // Collapsible Secondary Section for Filtered Accessories
-                if (detailedResults.accessoryOffers.isNotEmpty()) {
+                if (accessoryOffers.isNotEmpty()) {
                     item {
                         Spacer(modifier = Modifier.height(12.dp))
                         Surface(
@@ -215,7 +269,7 @@ fun ShoppingScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "لوازم جانبی مرتبط (${detailedResults.accessoryOffers.size} مورد فیلتر شده)",
+                                    text = "لوازم جانبی مرتبط (${accessoryOffers.size} مورد فیلتر شده)",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -230,7 +284,7 @@ fun ShoppingScreen(
                     }
 
                     if (isAccessoriesExpanded) {
-                        items(detailedResults.accessoryOffers, key = { "acc_${it.providerName}_${it.id}" }) { accessory ->
+                        items(accessoryOffers, key = { "acc_${it.providerName}_${it.id}" }) { accessory ->
                             ShoppingOfferCard(
                                 offer = accessory,
                                 isOutlier = false,

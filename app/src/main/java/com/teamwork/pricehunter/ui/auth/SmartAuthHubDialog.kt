@@ -53,7 +53,7 @@ val SUPPORTED_AUTH_PROVIDERS = listOf(
     ProviderAuthMeta(
         id = "tapsifood",
         displayName = "تپسی‌فود (TapsiFood)",
-        loginUrl = "https://food.tapsi.ir",
+        loginUrl = "https://tapsi.food",
         brandColor = Color(0xFFFF6F00)
     ),
     ProviderAuthMeta(

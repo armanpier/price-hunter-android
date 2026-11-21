@@ -52,7 +52,7 @@ class TapsiFoodProviderTest {
         assertEquals(5000L, cost.serviceFeeToman)
         assertEquals(29700L, cost.taxToman)
         assertEquals(326700L, cost.totalCostToman)
-        assertTrue(dish.originalUrl.startsWith("https://tapsi.food/restaurant/"))
+        assertTrue(dish.originalUrl.startsWith("https://tapsi.food/vendor/"))
     }
 
     @Test
