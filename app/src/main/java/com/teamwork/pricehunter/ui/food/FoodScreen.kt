@@ -3,6 +3,7 @@ package com.teamwork.pricehunter.ui.food
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -20,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.teamwork.pricehunter.core.intelligence.GeoLocation
 import com.teamwork.pricehunter.core.provider.FoodVendorDishOffer
 import com.teamwork.pricehunter.core.state.LocationPickerState
@@ -31,16 +33,24 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+enum class FoodSortMode(val label: String) {
+    CHEAPEST_FOOD("ارزان‌ترین غذا (خالص)"),
+    CHEAPEST_DELIVERED("ارزان‌ترین با پیک"),
+    DISCOUNTED("فقط تخفیف‌دارها")
+}
+
 @Composable
 fun FoodScreen(
     repository: SearchEngineRepository,
     modifier: Modifier = Modifier,
     initialLocation: GeoLocation = LocationPickerState.DEFAULT_TEHRAN_LOCATION,
+    initialQuery: String = "",
     isVpnActive: Boolean = false
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(initialQuery) }
     var location by remember { mutableStateOf(initialLocation) }
     var offers by remember { mutableStateOf<List<FoodVendorDishOffer>>(emptyList()) }
+    var selectedSortMode by remember { mutableStateOf(FoodSortMode.CHEAPEST_FOOD) }
     var isSearching by remember { mutableStateOf(false) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var vpnBannerDismissed by remember { mutableStateOf(false) }
@@ -81,6 +91,29 @@ fun FoodScreen(
                     isSearching = false
                 }
             }
+        }
+    }
+
+    LaunchedEffect(initialQuery) {
+        if (initialQuery.isNotBlank()) {
+            focusManager.clearFocus()
+            onSearchExecute()
+        }
+    }
+
+    val displayOffers = remember(offers, selectedSortMode) {
+        when (selectedSortMode) {
+            FoodSortMode.CHEAPEST_FOOD -> offers.sortedBy {
+                (it.costBreakdown.foodPriceToman - it.costBreakdown.discountToman).coerceAtLeast(0L)
+            }
+            FoodSortMode.CHEAPEST_DELIVERED -> offers.sortedBy {
+                it.costBreakdown.totalCostToman
+            }
+            FoodSortMode.DISCOUNTED -> offers
+                .filter { it.costBreakdown.discountToman > 0 }
+                .sortedBy {
+                    (it.costBreakdown.foodPriceToman - it.costBreakdown.discountToman).coerceAtLeast(0L)
+                }
         }
     }
 
@@ -177,6 +210,23 @@ fun FoodScreen(
             })
         )
 
+        // Sort & Filter Chips
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items(FoodSortMode.values()) { mode ->
+                FilterChip(
+                    selected = selectedSortMode == mode,
+                    onClick = { selectedSortMode = mode },
+                    label = { Text(mode.label, fontSize = 12.sp) }
+                )
+            }
+        }
+
         // VPN Advisory Banner
         if (isVpnActive && !vpnBannerDismissed) {
             VpnWarningBanner(
@@ -193,8 +243,8 @@ fun FoodScreen(
             )
         }
 
-        // Food Dishes List or Empty State (ranked strictly by total delivered cost)
-        if (offers.isEmpty() && !isSearching) {
+        // Food Dishes List or Empty State
+        if (displayOffers.isEmpty() && !isSearching) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -214,7 +264,7 @@ fun FoodScreen(
                     .testTag("food_offers_list"),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                items(offers, key = { "${it.providerName}_${it.id}" }) { offer ->
+                items(displayOffers, key = { "${it.providerName}_${it.id}" }) { offer ->
                     FoodOfferCard(offer = offer)
                 }
             }

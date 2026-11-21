@@ -14,7 +14,8 @@ import kotlin.math.min
 
 class SnappFoodProvider(
     private val baseUrl: String = DEFAULT_BASE_URL,
-    private val client: OkHttpClient = defaultClient()
+    private val client: OkHttpClient = defaultClient(),
+    private val authStorage: com.teamwork.pricehunter.core.security.AuthStorage? = null
 ) : FoodProvider {
 
     override val providerId: String = "snappfood"
@@ -45,15 +46,26 @@ class SnappFoodProvider(
 
         val cleanBaseUrl = baseUrl.trimEnd('/')
         val encodedQuery = URLEncoder.encode(cleanQuery, "UTF-8")
-        val dishUrl = "$cleanBaseUrl/search/api/v5/search?lat=${userLocation.latitude}&long=${userLocation.longitude}&query=$encodedQuery"
+        val dishUrl = "$cleanBaseUrl/search/api/v5/search?lat=${userLocation.latitude}&long=${userLocation.longitude}&query=$encodedQuery&page=0&size=50"
         val stateUrl = "$cleanBaseUrl/mobile/v2/restaurant/details/state"
 
         try {
-            val dishRequest = Request.Builder()
+            val dishReqBuilder = Request.Builder()
                 .url(dishUrl)
                 .header("User-Agent", "PriceHunter/1.0 (Android)")
                 .header("Accept", "application/json")
-                .build()
+
+            val token = authStorage?.getToken(providerId)
+            val cookies = authStorage?.getCookies(providerId)
+            if (!token.isNullOrBlank()) {
+                val bearer = if (token.startsWith("Bearer ", ignoreCase = true)) token else "Bearer $token"
+                dishReqBuilder.header("Authorization", bearer)
+            }
+            if (!cookies.isNullOrBlank()) {
+                dishReqBuilder.header("Cookie", cookies)
+            }
+
+            val dishRequest = dishReqBuilder.build()
 
             client.newCall(dishRequest).execute().use { dishResp ->
                 if (dishResp.code == 403) {
@@ -75,43 +87,14 @@ class SnappFoodProvider(
                     ?: dataObj?.getSafeArray("items")
                     ?: return@withContext ProviderResult.Success(emptyList())
 
-                // Fetch dynamic state for packaging, tax, delivery fee
-                var deliveryFee = 30000L
-                var packagingFee = 15000L
-                var taxPercent = 10L
-                var minOrder = 150000L
-
-                try {
-                    val stateRequest = Request.Builder()
-                        .url(stateUrl)
-                        .header("User-Agent", "PriceHunter/1.0 (Android)")
-                        .header("Accept", "application/json")
-                        .build()
-
-                    client.newCall(stateRequest).execute().use { stateResp ->
-                        if (stateResp.isSuccessful) {
-                            val stateBody = stateResp.body?.string() ?: ""
-                            val stateJson = gson.fromJson(stateBody, JsonObject::class.java)
-                            val stateData = stateJson.getSafeObject("data")
-                            if (stateData != null) {
-                                val del = stateData.getSafeObject("delivery")
-                                val baseFee = del?.getSafeLong("fee") ?: 30000L
-                                val delDiscount = del?.getSafeLong("discount") ?: 0L
-                                deliveryFee = max(0L, baseFee - delDiscount)
-                                packagingFee = stateData.getSafeLong("packaging_fee") ?: 15000L
-                                taxPercent = stateData.getSafeLong("tax_percent") ?: 10L
-                                minOrder = stateData.getSafeLong("minOrder") ?: 150000L
-                            }
-                        }
-                    }
-                } catch (_: Exception) {}
-
                 val offers = mutableListOf<FoodVendorDishOffer>()
                 for (it in items) {
                     val itObj = it.asSafeObject() ?: continue
                     val id = itObj.getSafeString("id") ?: continue
                     val dishName = itObj.getSafeString("title") ?: ""
                     val foodPrice = itObj.getSafeLong("price") ?: 0L
+                    if (foodPrice <= 0L) continue
+
                     val discountRatio = itObj.getSafeLong("discountRatio") ?: 0L
                     val rawDiscount = (foodPrice * min(100L, max(0L, discountRatio))) / 100L
                     val discountToman = min(foodPrice, rawDiscount)
@@ -119,8 +102,18 @@ class SnappFoodProvider(
                     val vendorObj = itObj.getSafeObject("vendor")
                     val vendorCode = vendorObj?.getSafeString("code") ?: "vendor-1"
                     val vendorTitle = vendorObj?.getSafeString("title") ?: "رستوران"
-                    val vLat = vendorObj?.getSafeDouble("lat") ?: userLocation.latitude
-                    val vLon = vendorObj?.getSafeDouble("lon") ?: userLocation.longitude
+                    val vLat = vendorObj?.getSafeDouble("latitude")
+                        ?: vendorObj?.getSafeDouble("lat") ?: userLocation.latitude
+                    val vLon = vendorObj?.getSafeDouble("longitude")
+                        ?: vendorObj?.getSafeDouble("lon") ?: userLocation.longitude
+
+                    // Use the vendor's actual delivery fee and min order
+                    val rawDeliveryFee = vendorObj?.getSafeLong("deliveryFeeAfterDiscount")
+                        ?: vendorObj?.getSafeLong("delivery_fee") ?: 0L
+                    val deliveryFee = max(0L, rawDeliveryFee)
+                    val packagingFee = vendorObj?.getSafeLong("packaging_fee") ?: 0L
+                    val minOrder = vendorObj?.getSafeLong("minOrder") ?: 0L
+                    val taxPercent = 10L
 
                     val costBreakdown = FoodCostCalculator.calculateDeliveredCost(
                         foodPriceToman = foodPrice,
@@ -133,6 +126,12 @@ class SnappFoodProvider(
                         minOrderThresholdToman = minOrder
                     )
 
+                    val imageUrl = itObj.getSafeString("featured")
+                        ?: itObj.getSafeString("image")
+                        ?: vendorObj?.getSafeString("logo")
+
+                    val isOpen = vendorObj?.getSafeBoolean("is_open") ?: true
+
                     offers.add(
                         FoodVendorDishOffer(
                             id = id,
@@ -142,8 +141,8 @@ class SnappFoodProvider(
                             dishName = dishName,
                             costBreakdown = costBreakdown,
                             originalUrl = "https://snappfood.ir/restaurant/menu/$vendorCode",
-                            imageUrl = null,
-                            isOpen = true
+                            imageUrl = imageUrl,
+                            isOpen = isOpen
                         )
                     )
                 }

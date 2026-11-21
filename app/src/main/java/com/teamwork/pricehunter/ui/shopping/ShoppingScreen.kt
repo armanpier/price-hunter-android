@@ -36,9 +36,10 @@ import kotlinx.coroutines.launch
 fun ShoppingScreen(
     repository: SearchEngineRepository,
     modifier: Modifier = Modifier,
+    initialQuery: String = "",
     isVpnActive: Boolean = false
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(initialQuery) }
     var detailedResults by remember { mutableStateOf(DetailedShoppingResults()) }
     var isSearching by remember { mutableStateOf(false) }
     var isAccessoriesExpanded by remember { mutableStateOf(false) }
@@ -83,6 +84,13 @@ fun ShoppingScreen(
                     isSearching = false
                 }
             }
+        }
+    }
+
+    LaunchedEffect(initialQuery) {
+        if (initialQuery.isNotBlank()) {
+            focusManager.clearFocus()
+            onSearchExecute()
         }
     }
 

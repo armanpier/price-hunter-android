@@ -31,6 +31,7 @@ import com.teamwork.pricehunter.core.security.SecureAuthStorage
 import com.teamwork.pricehunter.core.state.NavigationTab
 import com.teamwork.pricehunter.core.state.TwoTabNavigationStateMachine
 import com.teamwork.pricehunter.data.repository.SearchEngineRepository
+import com.teamwork.pricehunter.ui.auth.SmartAuthHubDialog
 import com.teamwork.pricehunter.ui.debug.DebugNetworkCaptureView
 import com.teamwork.pricehunter.ui.debug.ManualAuthHeaderDialog
 import com.teamwork.pricehunter.ui.food.FoodScreen
@@ -61,8 +62,8 @@ class MainActivity : ComponentActivity() {
         val digikala = DigikalaProvider(client = debugOkHttpClient)
         val torob = TorobProvider(client = debugOkHttpClient)
         val snappShop = SnappShopProvider(client = debugOkHttpClient)
-        val snappFood = SnappFoodProvider(client = debugOkHttpClient)
-        val tapsiFood = TapsiFoodProvider(client = debugOkHttpClient)
+        val snappFood = SnappFoodProvider(client = debugOkHttpClient, authStorage = authStorage)
+        val tapsiFood = TapsiFoodProvider(client = debugOkHttpClient, authStorage = authStorage)
         val okala = OkalaProvider(client = debugOkHttpClient)
 
         repository = SearchEngineRepository(
@@ -71,13 +72,20 @@ class MainActivity : ComponentActivity() {
         )
         repository.registerShoppingProvider(okala)
 
+        val targetTab = intent?.getStringExtra("tab")?.let {
+            if (it == "food") NavigationTab.FOOD else NavigationTab.SHOPPING
+        } ?: NavigationTab.SHOPPING
+        val targetQuery = intent?.getStringExtra("search_query") ?: ""
+
         setContent {
             PriceHunterTheme {
                 MainAppScreen(
                     repository = repository,
                     authStorage = authStorage,
                     capturePool = capturePool,
-                    networkGuard = networkGuard
+                    networkGuard = networkGuard,
+                    initialTab = targetTab,
+                    initialQuery = targetQuery
                 )
             }
         }
@@ -90,10 +98,12 @@ fun MainAppScreen(
     repository: SearchEngineRepository,
     authStorage: AuthStorage,
     capturePool: DebugNetworkCapturePool,
-    networkGuard: NetworkGuard? = null
+    networkGuard: NetworkGuard? = null,
+    initialTab: NavigationTab = NavigationTab.SHOPPING,
+    initialQuery: String = ""
 ) {
-    val navStateMachine = remember { TwoTabNavigationStateMachine(NavigationTab.SHOPPING) }
-    var activeTab by remember { mutableStateOf(navStateMachine.activeTab) }
+    val navStateMachine = remember(initialTab) { TwoTabNavigationStateMachine(initialTab) }
+    var activeTab by remember(initialTab) { mutableStateOf(initialTab) }
     var showAuthDialog by remember { mutableStateOf(false) }
     var showDebugCapture by remember { mutableStateOf(false) }
 
@@ -178,21 +188,23 @@ fun MainAppScreen(
                 NavigationTab.SHOPPING -> {
                     ShoppingScreen(
                         repository = repository,
+                        initialQuery = if (activeTab == NavigationTab.SHOPPING) initialQuery else "",
                         isVpnActive = isVpnActive
                     )
                 }
                 NavigationTab.FOOD -> {
                     FoodScreen(
                         repository = repository,
+                        initialQuery = if (activeTab == NavigationTab.FOOD) initialQuery else "",
                         isVpnActive = isVpnActive
                     )
                 }
             }
         }
 
-        // Debug Manual Auth Header Dialog
+        // Smart In-App Browser Auth Hub Dialog
         if (showAuthDialog) {
-            ManualAuthHeaderDialog(
+            SmartAuthHubDialog(
                 authStorage = authStorage,
                 onDismiss = { showAuthDialog = false }
             )
