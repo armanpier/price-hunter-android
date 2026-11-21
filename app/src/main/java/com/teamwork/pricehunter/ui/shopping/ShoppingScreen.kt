@@ -2,9 +2,11 @@ package com.teamwork.pricehunter.ui.shopping
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,11 +24,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import com.teamwork.pricehunter.core.provider.ShoppingOffer
-import com.teamwork.pricehunter.core.state.ProgressiveLoadingSnapshot
 import com.teamwork.pricehunter.core.state.ProgressiveLoadingTracker
 import com.teamwork.pricehunter.data.repository.DetailedShoppingResults
 import com.teamwork.pricehunter.data.repository.SearchEngineRepository
+import com.teamwork.pricehunter.ui.components.OfferCardSkeleton
 import com.teamwork.pricehunter.ui.components.ProgressiveLoadingBar
 import com.teamwork.pricehunter.ui.components.VpnWarningBanner
 import kotlinx.coroutines.flow.collectLatest
@@ -41,9 +42,9 @@ fun ShoppingScreen(
 ) {
     var query by remember { mutableStateOf(initialQuery) }
     var detailedResults by remember { mutableStateOf(DetailedShoppingResults()) }
-    var isSearching by remember { mutableStateOf(false) }
     var isAccessoriesExpanded by remember { mutableStateOf(false) }
     var isOutliersExpanded by remember { mutableStateOf(false) }
+    var isSearching by remember { mutableStateOf(false) }
     var vpnBannerDismissed by remember { mutableStateOf(false) }
 
     var shoppingTracker by remember {
@@ -136,7 +137,7 @@ fun ShoppingScreen(
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(16.dp),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = {
                 focusManager.clearFocus()
@@ -161,7 +162,6 @@ fun ShoppingScreen(
         }
 
         // Main Offers Content Area
-        // Primary merchandise offers strictly sorted by price
         val primaryOffers = remember(detailedResults) {
             detailedResults.primaryOffers.sortedBy { it.priceToman }
         }
@@ -174,18 +174,88 @@ fun ShoppingScreen(
 
         val hasAnyResults = primaryOffers.isNotEmpty() || outlierOffers.isNotEmpty() || accessoryOffers.isNotEmpty()
 
-        if (!hasAnyResults && !isSearching) {
-            Box(
+        if (isSearching && !hasAnyResults) {
+            // Skeleton shimmer loading placeholders
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
+                    .padding(top = 8.dp)
             ) {
+                repeat(4) {
+                    OfferCardSkeleton()
+                }
+            }
+        } else if (!hasAnyResults) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    modifier = Modifier.size(72.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Text(
                     text = if (query.isBlank()) "کالای مورد نظر خود را جستجو کنید" else "هیچ کالایی برای «$query» یافت نشد",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "ارزان‌ترین قیمت‌ها را میان دیجی‌کالا، ترب و اسنپ‌شاپ مقایسه کنید",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                if (query.isBlank()) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        text = "پیشنهادهای جستجو:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    val suggestions = listOf("گوشی سامسونگ", "آیفون", "پاوربانک", "کولر گازی پرتابل", "هندزفری")
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        suggestions.forEach { item ->
+                            SuggestionChip(
+                                onClick = {
+                                    query = item
+                                    focusManager.clearFocus()
+                                    onSearchExecute()
+                                },
+                                label = { Text(item, style = MaterialTheme.typography.labelSmall) },
+                                modifier = Modifier.padding(horizontal = 4.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                    }
+                }
             }
         } else {
             LazyColumn(
@@ -259,7 +329,7 @@ fun ShoppingScreen(
                                 .clickable { isAccessoriesExpanded = !isAccessoriesExpanded }
                                 .testTag("shopping_accessories_header"),
                             shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                         ) {
                             Row(
                                 modifier = Modifier

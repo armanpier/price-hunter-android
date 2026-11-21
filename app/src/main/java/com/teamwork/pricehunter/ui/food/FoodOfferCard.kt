@@ -5,8 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -45,16 +47,17 @@ fun FoodOfferCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .testTag("food_card_${offer.id}"),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp)
+                .padding(16.dp)
         ) {
             // Header: Dish Name, Vendor Title, Provider Badge
             Row(
@@ -71,7 +74,7 @@ fun FoodOfferCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.testTag("food_card_title")
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = offer.vendorName,
                         style = MaterialTheme.typography.bodySmall,
@@ -82,28 +85,42 @@ fun FoodOfferCard(
 
                 // Provider Badge
                 val isSnappFood = offer.providerName.contains("اسنپ")
+                val badgeBg = if (isSnappFood) Color(0xFFFFEBF2) else Color(0xFFFFF3E0)
+                val badgeText = if (isSnappFood) Color(0xFFE91E63) else Color(0xFFFF6F00)
+                val dotColor = if (isSnappFood) Color(0xFFE91E63) else Color(0xFFFF6F00)
+
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (isSnappFood) Color(0xFFFFEBF2) else Color(0xFFFFF3E0),
+                    shape = RoundedCornerShape(8.dp),
+                    color = badgeBg,
                     modifier = Modifier
-                        .padding(start = 8.dp)
+                        .padding(start = 10.dp)
                         .testTag("food_card_provider_badge")
                 ) {
-                    Text(
-                        text = offer.providerName,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isSnappFood) Color(0xFFE91E63) else Color(0xFFFF6F00),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = dotColor,
+                            modifier = Modifier.size(6.dp)
+                        ) {}
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = offer.providerName,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = badgeText
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Main Food Price Row (prominently showing net food price)
+            // Main Food Price Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -118,7 +135,7 @@ fun FoodOfferCard(
                         )
                         Text(
                             text = formatFoodToman(finalFoodPrice),
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (cost.discountToman > 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.testTag("food_card_food_price")
@@ -155,42 +172,51 @@ fun FoodOfferCard(
 
                 // Delivery Fee Badge
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = if (cost.deliveryFeeToman == 0L) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Text(
                         text = if (cost.deliveryFeeToman == 0L) "پیک رایگان ✓" else "پیک: " + formatFoodToman(cost.deliveryFeeToman),
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         color = if (cost.deliveryFeeToman == 0L) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Total Delivered Cost Summary Line
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "مجموع تمام‌شده با پیک و مالیات:",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatFoodToman(cost.totalCostToman),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.testTag("food_card_total_cost")
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "مجموع تمام‌شده با پیک و مالیات:",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatFoodToman(cost.totalCostToman),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.testTag("food_card_total_cost")
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Expandable Breakdown Toggle
             Row(
@@ -216,38 +242,46 @@ fun FoodOfferCard(
             }
 
             AnimatedVisibility(visible = showBreakdown) {
-                Column(
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 4.dp)
-                        .testTag("food_card_cost_breakdown"),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    CostRow(label = "قیمت پایه غذا", value = formatFoodToman(cost.foodPriceToman))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp)
+                            .testTag("food_card_cost_breakdown"),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        CostRow(label = "قیمت پایه غذا", value = formatFoodToman(cost.foodPriceToman))
 
-                    if (cost.discountToman > 0) {
+                        if (cost.discountToman > 0) {
+                            CostRow(
+                                label = "تخفیف غذا",
+                                value = "- " + formatFoodToman(cost.discountToman),
+                                valueColor = Color(0xFF2E7D32)
+                            )
+                        }
+
                         CostRow(
-                            label = "تخفیف غذا",
-                            value = "- " + formatFoodToman(cost.discountToman),
-                            valueColor = Color(0xFF2E7D32)
+                            label = "هزینه بسته‌بندی",
+                            value = if (cost.packagingFeeToman == 0L) "رایگان" else formatFoodToman(cost.packagingFeeToman)
                         )
+
+                        CostRow(
+                            label = "هزینه پیک / ارسال",
+                            value = if (cost.deliveryFeeToman == 0L) "رایگان" else formatFoodToman(cost.deliveryFeeToman)
+                        )
+
+                        if (cost.serviceFeeToman > 0) {
+                            CostRow(label = "هزینه خدمات", value = formatFoodToman(cost.serviceFeeToman))
+                        }
+
+                        CostRow(label = "مالیات و عوارض (۱۰٪)", value = formatFoodToman(cost.taxToman))
                     }
-
-                    CostRow(
-                        label = "هزینه بسته‌بندی",
-                        value = if (cost.packagingFeeToman == 0L) "رایگان" else formatFoodToman(cost.packagingFeeToman)
-                    )
-
-                    CostRow(
-                        label = "هزینه پیک / ارسال",
-                        value = if (cost.deliveryFeeToman == 0L) "رایگان" else formatFoodToman(cost.deliveryFeeToman)
-                    )
-
-                    if (cost.serviceFeeToman > 0) {
-                        CostRow(label = "هزینه خدمات", value = formatFoodToman(cost.serviceFeeToman))
-                    }
-
-                    CostRow(label = "مالیات و عوارض (۱۰٪)", value = formatFoodToman(cost.taxToman))
                 }
             }
 
@@ -281,12 +315,12 @@ fun FoodOfferCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                OutlinedButton(
+                FilledTonalButton(
                     onClick = {
                         if (onCardClick != null) {
                             onCardClick()
@@ -294,8 +328,8 @@ fun FoodOfferCard(
                             launchFoodDeepLink(context, offer.originalUrl)
                         }
                     },
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = "مشاهده در ${offer.providerName} ↗",
